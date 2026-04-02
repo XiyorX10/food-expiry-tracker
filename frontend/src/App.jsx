@@ -1,58 +1,60 @@
-import { useState } from 'react'
-import './App.css'
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import Home from './pages/Home'
+import Recipes from './pages/Recipes'
+import AddFood from './pages/AddFood'
 
-function App() {
-  const [items, setItems] = useState([]);
-  const [name, setName] = useState('');
-  const [date, setDate] = useState('');
-
-  const addItem = (e) => {
-    e.preventDefault();
-    if (!name || !date) return;
-    
-    // Calculate if it's expired for a quick "Hackathon Feature"
-    const isExpired = new Date(date) < new Date();
-    
-    const newItem = { name, date, isExpired, id: Date.now() };
-    setItems([newItem, ...items]);
-    setName('');
-    setDate('');
-  };
-
+export default function App() {
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h1>🍎 Food Expiry Tracker</h1>
-      
-      <form onSubmit={addItem} style={{ marginBottom: '20px' }}>
-        <input 
-          type="text" placeholder="Item Name" 
-          value={name} onChange={(e) => setName(e.target.value)} 
-          style={{ marginRight: '10px', padding: '8px' }}
-        />
-        <input 
-          type="date" 
-          value={date} onChange={(e) => setDate(e.target.value)} 
-          style={{ marginRight: '10px', padding: '8px' }}
-        />
-        <button type="submit" style={{ padding: '8px 15px', cursor: 'pointer' }}>Add</button>
-      </form>
+    <BrowserRouter>
 
-      <div>
-        {items.map(item => (
-          <div key={item.id} style={{ 
-            border: '1px solid #ccc', 
-            margin: '5px 0', 
-            padding: '10px',
-            borderRadius: '5px',
-            backgroundColor: item.isExpired ? '#ffebee' : '#e8f5e9'
-          }}>
-            <strong>{item.name}</strong> — Expires: {item.date} 
-            {item.isExpired && <span style={{ color: 'red', marginLeft: '10px' }}>⚠️ EXPIRED</span>}
+      {/* Navbar */}
+      <nav style={{ background: '#27500a', padding: '0 24px',
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', height: 56 }}>
+
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, background: '#97c459',
+            borderRadius: 8, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: 15 }}>
+            🌿
           </div>
-        ))}
-      </div>
-    </div>
+          <span style={{ color: '#eaf3de', fontSize: 16, fontWeight: 500 }}>
+            Fresh Tracker
+          </span>
+        </div>
+
+        {/* Links */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[
+            { to: '/',         label: 'Home' },
+            { to: '/recipes',  label: 'Recipes' },
+            { to: '/add-food', label: 'Add Food' },
+          ].map(link => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.to === '/'}
+              style={({ isActive }) => ({
+                color: isActive ? '#eaf3de' : '#97c459',
+                background: isActive ? '#3b6d11' : 'transparent',
+                fontSize: 13, fontWeight: 500,
+                padding: '6px 14px', borderRadius: 8,
+                textDecoration: 'none'
+              })}>
+              {link.label}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+
+      {/* Pages */}
+      <Routes>
+        <Route path="/"        element={<Home />} />
+        <Route path="/recipes"  element={<Recipes />} />
+        <Route path="/add-food" element={<AddFood />} />
+      </Routes>
+
+    </BrowserRouter>
   )
 }
-
-export default App
