@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
+const API = 'http://localhost:3001/api/foods'
 
 const CATEGORIES = [
   { label: 'Dairy',  icon: '🥛' },
@@ -35,21 +37,54 @@ export default function AddFood() {
   const [form, setForm]       = useState({ name: '', quantity: '', expiry: '', category: 'Other' })
   const [foods, setFoods]     = useState([])
   const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  function handleAdd() {
+  // Load existing foods from backend on mount
+  useEffect(() => {
+    fetch(API)
+      .then(res => res.json())
+      .then(data => setFoods(data))
+      .catch(err => console.error('Failed to load foods:', err))
+  }, [])
+
+  async function handleAdd() {
     if (!form.name || !form.expiry) {
       alert('Please fill in food name and expiry date!')
       return
     }
     const cat = CATEGORIES.find(c => c.label === form.category)
-    setFoods(prev => [...prev, { ...form, icon: cat?.icon || '📦' }])
-    setForm({ name: '', quantity: '', expiry: '', category: 'Other' })
-    setSuccess(true)
-    setTimeout(() => setSuccess(false), 2000)
+    setLoading(true)
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:       form.name,
+          quantity:   form.quantity,
+          expiryDate: form.expiry,
+          category:   form.category,
+          icon:       cat?.icon || '📦',
+        }),
+      })
+      const newItem = await res.json()
+      setFoods(prev => [...prev, newItem])
+      setForm({ name: '', quantity: '', expiry: '', category: 'Other' })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 2000)
+    } catch (err) {
+      alert('Failed to save food item. Is your backend running?')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleDelete(index) {
-    setFoods(prev => prev.filter((_, i) => i !== index))
+  async function handleDelete(id) {
+    try {
+      await fetch(`${API}/${id}`, { method: 'DELETE' })
+      setFoods(prev => prev.filter(f => f.id !== id))
+    } catch (err) {
+      alert('Failed to delete item.')
+    }
   }
 
   const input = {
@@ -140,15 +175,15 @@ export default function AddFood() {
             <div style={{ background: '#eaf3de', border: '0.5px solid #97c459',
               borderRadius: 10, padding: '12px 16px', fontSize: 15,
               color: '#3b6d11', textAlign: 'center', fontWeight: 500, marginBottom: 14 }}>
-              Food item added!
+              ✅ Food item saved!
             </div>
           )}
 
-          <button onClick={handleAdd}
-            style={{ background: '#3b6d11', color: 'white', border: 'none',
+          <button onClick={handleAdd} disabled={loading}
+            style={{ background: loading ? '#7aab4a' : '#3b6d11', color: 'white', border: 'none',
               borderRadius: 10, padding: 16, width: '100%',
-              fontSize: 17, fontWeight: 500, cursor: 'pointer' }}>
-            + Add food item
+              fontSize: 17, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer' }}>
+            {loading ? 'Saving...' : '+ Add food item'}
           </button>
         </div>
 
@@ -158,8 +193,8 @@ export default function AddFood() {
             <div style={{ fontSize: 18, fontWeight: 500, color: '#27500a', marginBottom: 12 }}>
               Food list
             </div>
-            {foods.map((f, i) => (
-              <div key={i} style={{ background: 'white', borderRadius: 10,
+            {foods.map((f) => (
+              <div key={f.id} style={{ background: 'white', borderRadius: 10,
                 border: '0.5px solid #c0dd97', padding: '14px 16px',
                 marginBottom: 10, display: 'flex',
                 alignItems: 'center', justifyContent: 'space-between' }}>
@@ -168,12 +203,12 @@ export default function AddFood() {
                     {f.icon} {f.name}
                   </div>
                   <div style={{ fontSize: 14, color: '#888780', marginTop: 3 }}>
-                    {f.quantity && `${f.quantity} · `}Expires {new Date(f.expiry).toDateString()}
+                    {f.quantity && `${f.quantity} · `}Expires {new Date(f.expiryDate).toDateString()}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Badge days={daysUntil(f.expiry)} />
-                  <button onClick={() => handleDelete(i)}
+                  <Badge days={daysUntil(f.expiryDate)} />
+                  <button onClick={() => handleDelete(f.id)}
                     style={{ background: 'none', border: 'none',
                       color: '#a32d2d', fontSize: 18, cursor: 'pointer' }}>
                     ✕
@@ -183,7 +218,6 @@ export default function AddFood() {
             ))}
           </>
         )}
-
       </div>
     </div>
   )

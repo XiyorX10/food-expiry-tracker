@@ -1,18 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
- 
-const foods = [
-  { name: 'Milk',    qty: '1 carton', days: 0,  maxDays: 7 },
-  { name: 'Spinach', qty: '1 bag',    days: 2,  maxDays: 7 },
-  { name: 'Eggs',    qty: '6 left',   days: 3,  maxDays: 7 },
-]
- 
+
+const API = 'http://localhost:3001/api/foods'
+
 function Badge({ days }) {
-  if (days === 0) return <span style={badge('red')}>TODAY</span>
-  if (days <= 3)  return <span style={badge('orange')}>{days} DAYS</span>
+  if (days <= 0) return <span style={badge('red')}>TODAY</span>
+  if (days <= 3) return <span style={badge('orange')}>{days} DAYS</span>
   return               <span style={badge('green')}>{days} DAYS</span>
 }
- 
+
 function badge(color) {
   const colors = {
     red:    { background: '#fcebeb', color: '#a32d2d' },
@@ -28,17 +24,17 @@ function badge(color) {
     letterSpacing: '0.06em',
   }
 }
- 
+
 function ProgressBar({ days, maxDays }) {
   const ratio = Math.max(0, (maxDays - days) / maxDays)
-  const color = days === 0 ? '#e24b4a' : days <= 3 ? '#ba7517' : '#3b6d11'
+  const color = days <= 0 ? '#e24b4a' : days <= 3 ? '#ba7517' : '#3b6d11'
   return (
     <div style={{ marginTop: 10, height: 4, background: '#e8f0e0', borderRadius: 4, overflow: 'hidden' }}>
       <div style={{ width: `${ratio * 100}%`, height: '100%', background: color, borderRadius: 4 }} />
     </div>
   )
 }
- 
+
 function BoxIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b6d11" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -48,7 +44,7 @@ function BoxIcon() {
     </svg>
   )
 }
- 
+
 function WarnIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ba7517" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -58,7 +54,7 @@ function WarnIcon() {
     </svg>
   )
 }
- 
+
 function ErrorIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a32d2d" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -68,14 +64,39 @@ function ErrorIcon() {
     </svg>
   )
 }
- 
+
+function daysUntil(dateStr) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.ceil((new Date(dateStr) - today) / (1000 * 60 * 60 * 24))
+}
+
 export default function Home() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
+  const [query, setQuery]       = useState('')
+  const [foodList, setFoodList] = useState([])
 
-  const filteredFoods = foods.filter(f =>
+  useEffect(() => {
+    fetch(API)
+      .then(res => res.json())
+      .then(data => setFoodList(data))
+      .catch(err => console.error('Failed to load foods:', err))
+  }, [])
+
+  // Compute days live from expiryDate
+  const withDays = foodList.map(f => ({
+    ...f,
+    days:    daysUntil(f.expiryDate),
+    maxDays: 7,
+  }))
+
+  const filteredFoods = withDays.filter(f =>
     f.name.toLowerCase().includes(query.toLowerCase())
   )
+
+  const addButtonLabel = foodList.length === 0
+    ? '🌱 Add your first item!'
+    : '+ Add food item'
 
   return (
     <div style={{ background: '#f4faf0', minHeight: '100vh', width: '100%' }}>
@@ -133,13 +154,13 @@ export default function Home() {
 
       {/* Body */}
       <div style={{ padding: '36px 40px 48px', maxWidth: '75%', margin: '0 auto' }}>
- 
+
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 36 }}>
           {[
-            { num: 12, label: 'Total items',   color: '#3b6d11', Icon: BoxIcon  },
-            { num: 3,  label: 'Expiring soon', color: '#ba7517', Icon: WarnIcon },
-            { num: 1,  label: 'Expired today', color: '#a32d2d', Icon: ErrorIcon },
+            { num: withDays.length,                                                   label: 'Total items',   color: '#3b6d11', Icon: BoxIcon   },
+            { num: withDays.filter(f => f.days > 0 && f.days <= 3).length,            label: 'Expiring soon', color: '#ba7517', Icon: WarnIcon  },
+            { num: withDays.filter(f => f.days <= 0).length,                          label: 'Expired today', color: '#a32d2d', Icon: ErrorIcon },
           ].map(s => (
             <div key={s.label} style={{
               background: 'white',
@@ -173,7 +194,7 @@ export default function Home() {
             </div>
           ))}
         </div>
- 
+
         {/* Expiring soon list */}
         <div style={{
           fontSize: 20,
@@ -188,11 +209,11 @@ export default function Home() {
         {filteredFoods.length === 0 ? (
           <div style={{ background: 'white', borderRadius: 12, border: '0.5px solid #c0dd97',
             padding: '24px 20px', textAlign: 'center', color: '#888780', fontSize: 15 }}>
-            No foods found matching "{query}"
+            {query ? `No foods found matching "${query}"` : 'No items yet — add your first food item below!'}
           </div>
         ) : (
           filteredFoods.map(f => (
-            <div key={f.name} style={{
+            <div key={f.id} style={{
               background: 'white',
               borderRadius: 12,
               border: '0.5px solid #c0dd97',
@@ -201,8 +222,12 @@ export default function Home() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: 17, fontWeight: 600, color: '#1e3612' }}>{f.name}</div>
-                  <div style={{ fontSize: 14, color: '#888780', marginTop: 2 }}>{f.qty}</div>
+                  <div style={{ fontSize: 17, fontWeight: 600, color: '#1e3612' }}>
+                    {f.icon} {f.name}
+                  </div>
+                  <div style={{ fontSize: 14, color: '#888780', marginTop: 2 }}>
+                    {f.quantity && `${f.quantity} · `}Expires {new Date(f.expiryDate).toDateString()}
+                  </div>
                 </div>
                 <Badge days={f.days} />
               </div>
@@ -210,7 +235,7 @@ export default function Home() {
             </div>
           ))
         )}
- 
+
         {/* Add food button */}
         <button
           onClick={() => navigate('/add-food')}
@@ -226,11 +251,12 @@ export default function Home() {
             cursor: 'pointer',
             margin: '20px 0 36px',
             letterSpacing: '0.01em',
+            transition: 'background 0.2s',
           }}
         >
-          + Add food item
+          {addButtonLabel}
         </button>
- 
+
         {/* AI suggestions */}
         <div style={{
           fontSize: 20,
